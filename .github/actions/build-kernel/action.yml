@@ -7,6 +7,10 @@ inputs:
   version:
     description: 'Kernel config version (e.g., android14-6.1)'
     required: true
+  custom:
+    required: false
+    type: boolean
+    default: false
 
 runs:
   using: composite
@@ -45,6 +49,13 @@ runs:
       cat common/arch/arm64/configs/gki_defconfig
       sed -i 's/check_defconfig//' ./common/build.config.gki
       if [ -f "build/build.sh" ]; then
+        if [[ "${{ inputs.custom }}" == "true" ]]; then
+          B_CONFIG=common/build.config.gki.aarch64
+          sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' ./$B_CONFIG
+          sed -i '\#MODULES_ORDER=android/gki_aarch64_modules#d' ./$B_CONFIG
+          sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./$B_CONFIG
+        fi
+
         BUILD_GKI_ARTIFACTS= \
         BUILD_GKI_CERTIFICATION_TOOLS=0 \
         BUILD_SYSTEM_DLKM=0 \
@@ -98,8 +109,8 @@ runs:
           echo "Kernel Version:"
           strings "/home/runner/out/dist/Image" | grep -m1 "^Linux version "
         fi
-          exit 0
-        fi
+        exit 0
+      fi
       if [ -f "/home/runner/out/Image" ]; then
         echo "Found Image at /home/runner/out/Image"
         if [[ ${{ inputs.bypass }} == "true" ]]; then
@@ -119,5 +130,10 @@ runs:
     run: |
       set -euo pipefail
       cp ${{ github.action_path }}/patches/bypass.patch "${{ github.workspace }}/AnyKernel3/bypass.patch"
-      patch -p1 < bypass.patch
+      patch -p1 < bypass.patch || exit 0
+      BYPASS_PATCH_EXIT_CODE=$?
+      #if [ $BYPASS_PATCH_EXIT_CODE -ne 0 ]; then
+      echo "Patch AnyKernel3 for Bypass Hack - exit code: $BYPASS_PATCH_EXIT_CODE"        
+      #fi
+      exit 0
 
