@@ -27,12 +27,13 @@ on:
           - android14-6.1
           - android15-6.6
           - android16-6.12
-        default: All
+        default: android12-5.10
       feature_set:
         description: "Feature Set"
         type: choice
         options:
           - KSUN+SUSFS+BBG+NET+DS
+          - KSUN+SUSFS+BBG+NET
           - KSUN+SUSFS+BBG
           - KSUN+SUSFS+NET
           - KSUN+SUSFS+DS
@@ -43,7 +44,7 @@ on:
           - KSUN
           - NONE
           - FULL
-        default: FULL
+        default: KSUN+SUSFS+BBG+NET
       use_repo:
         description: "Use repo for downloading kernel source"
         type: boolean
@@ -56,6 +57,56 @@ on:
         description: "Test release notes only"
         type: boolean
         default: false
+      add_bypass:
+        description: 'Bypass'
+        required: false
+        type: boolean
+        default: false
+      use_rekernel:
+        description: 'Re-kernel'
+        required: false
+        type: boolean
+        default: false
+      add_zeromount:
+        description: 'Add ZERoMount support (main)'
+        required: false
+        type: boolean
+        default: false
+      add_nomount:
+        description: 'Add NoMount support'
+        required: false
+        type: boolean
+        default: false
+      add_nomountX:
+        description: 'Add NoMount support (saved/old)'
+        required: false
+        type: boolean
+        default: false
+      add_hymofs:
+        description: 'Enable support for HymoFS'
+        required: false
+        type: boolean
+        default: false
+      skip_proper:
+        description: 'Skip mrproper'
+        required: false
+        type: boolean
+        default: false
+      custom:
+        description: "Custom kernel (AOSP)"
+        required: false
+        type: boolean
+        default: false
+      custom_name:
+        description: "Custom kernel (AOSP) name"
+        required: false
+        type: choice
+        options:
+          - "UserXP"
+          - "playground"
+          - "EvoX"
+          - "zylhdrXP"
+        default: "zylhdrXP"
 
 jobs:
   build-android12-5-10:
@@ -66,6 +117,15 @@ jobs:
       feature_set: ${{ inputs.feature_set || 'FULL' }}
       use_repo: ${{ inputs.use_repo }}
       use_latest_commits: ${{ inputs.use_latest_commits }}
+      add_bypass: ${{ inputs.add_bypass }}
+      use_rekernel: ${{ inputs.use_rekernel }}
+      add_zeromount: ${{ inputs.add_zeromount }}
+      add_nomount: ${{ inputs.add_nomount }}
+      add_nomountX: ${{ inputs.add_nomountX }}
+      add_hymofs: ${{ inputs.add_hymofs }}
+      skip_proper: ${{ inputs.skip_proper }}
+      custom: ${{ inputs.custom }}
+      custom_name: ${{ inputs.custom_name }}
     secrets: inherit
 
   build-android13-5-10:
