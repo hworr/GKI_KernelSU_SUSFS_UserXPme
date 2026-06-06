@@ -17,6 +17,14 @@ inputs:
   use_repo:
     description: 'Use repo for downloading kernel source'
     required: false
+  custom:
+    required: false
+    type: boolean
+    default: false
+  custom_name:
+    required: false
+    type: string
+    default: ""
 
 outputs:
   deprecated_branch:
@@ -41,16 +49,27 @@ runs:
         FORMATTED_BRANCH="${ANDROID_PART}-${KERNEL_PART}-${{ inputs.os_patch_level }}"
 
         init_repo() {
-          repo init -u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --depth=1 || { echo "ERROR: repo init failed" >&2; return 1; }
-          REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH}) || { echo "ERROR: git ls-remote failed" >&2; return 1; }
-          DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
-          DEPRECATED=false
-          if grep -q deprecated <<< "$REMOTE_BRANCH"; then
-            sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" "$DEFAULT_MANIFEST_PATH"
-            echo "⚠ Note: Branch ${FORMATTED_BRANCH} is considered deprecated."
-            DEPRECATED=true
+          if ${{ inputs.custom }}; then
+            echo "CUSTOM repo"
+            MANIFEST_URL="https://github.com/UserXP-web/kernel_build"
+            FORMATTED_BRANCH="main"
+            MANIFEST_PATH_NAME="manifest/${{ inputs.custom_name }}.xml"
+  
+            # Initialize repo with the target branch
+            repo init -u ${MANIFEST_URL} -b ${FORMATTED_BRANCH} -m ${MANIFEST_PATH_NAME} --depth=1
+          else
+            echo "ORIGinal repo"
+            repo init -u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --depth=1 || { echo "ERROR: repo init failed" >&2; return 1; }
+            REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH}) || { echo "ERROR: git ls-remote failed" >&2; return 1; }
+            DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
+            DEPRECATED=false
+            if grep -q deprecated <<< "$REMOTE_BRANCH"; then
+              sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" "$DEFAULT_MANIFEST_PATH"
+              echo "⚠ Note: Branch ${FORMATTED_BRANCH} is considered deprecated."
+              DEPRECATED=true
+            fi
+            echo "deprecated=$DEPRECATED" >> $GITHUB_OUTPUT
           fi
-          echo "deprecated=$DEPRECATED" >> $GITHUB_OUTPUT
         }
 
         init_repo || { echo "ERROR: init_repo failed" >&2; exit 1; }
