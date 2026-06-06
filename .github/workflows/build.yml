@@ -34,6 +34,42 @@ on:
         required: false
         type: boolean
         default: true
+      add_bypass:
+        required: false
+        type: boolean
+        default: false
+      use_rekernel:
+        required: false
+        type: boolean
+        default: false
+      add_zeromount:
+        required: false
+        type: boolean
+        default: false
+      add_nomount:
+        required: false
+        type: boolean
+        default: false
+      add_nomountX:
+        required: false
+        type: boolean
+        default: false
+      add_hymofs:
+        required: false
+        type: boolean
+        default: false
+      skip_proper:
+        required: false
+        type: boolean
+        default: false
+      custom:
+        required: false
+        type: boolean
+        default: false
+      custom_name:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build-gki:
@@ -83,6 +119,8 @@ jobs:
         kernel_version: ${{ inputs.kernel_version }}
         os_patch_level: ${{ inputs.os_patch_level }}
         use_repo: ${{ inputs.use_repo }}
+        custom: ${{ inputs.custom }}
+        custom_name: ${{ inputs.custom_name }}
 
     - name: Set Build Timestamp from Kernel Commit
       shell: bash
@@ -294,6 +332,250 @@ jobs:
     - name: Initialize Config Fragment
       run: touch "${{ github.workspace }}/wild_gki.fragment"
 
+
+
+    - name: Check if BBG
+      if: contains(inputs.feature_set, 'BBG') || inputs.feature_set == 'FULL'
+      run: echo "WITH_BBG=y" >> $GITHUB_ENV
+    - name: Check if NET
+      if: contains(inputs.feature_set, 'NET') || inputs.feature_set == 'FULL'
+      run: echo "WITH_NET=y" >> $GITHUB_ENV
+    - name: Check if DS
+      if: contains(inputs.feature_set, 'DS') || inputs.feature_set == 'FULL'
+      run: echo "WITH_DS=y" >> $GITHUB_ENV
+    - name: Check if SUSFS
+      if: contains(inputs.feature_set, 'SUSFS') || inputs.feature_set == 'FULL'
+      run: echo "WITH_SUSFS=y" >> $GITHUB_ENV
+    - name: Apply ZeroMount Patch
+      if: inputs.add_zeromount && contains(inputs.feature_set, 'SUSFS')
+      working-directory: ${{ github.workspace }}/kernel/common
+      run: |
+          BRANCH="main" # main feature/patch-restructure
+          #ANDROID_VERSION=${{ inputs.android_version }}
+          #KERNEL_VERSION=${{ inputs.kernel_version }}
+          KERNEL_VARIANT=WildKSU
+          #echo "==> Apply Upstream SUSFS Patch"
+          #PATCHNAME=50_add_susfs_in_gki-$ANDROID_VERSION-$KERNEL_VERSION.patch
+          #curl -LSs "https://raw.githubusercontent.com/Enginex0/Super-Builders/refs/heads/$BRANCH/$ANDROID_VERSION-$KERNEL_VERSION/$KERNEL_VARIANT/patches/$PATCHNAME" -o $PATCHNAME
+          #patch -p1 -F3 --no-backup-if-mismatch < "$PATCHNAME"
+          #echo "==> Apply Enhanced SUSFS Patch"
+          #PATCHNAME=51_enhanced_susfs-$ANDROID_VERSION-$KERNEL_VERSION.patch
+          #curl -LSs "https://raw.githubusercontent.com/Enginex0/Super-Builders/refs/heads/$BRANCH/$ANDROID_VERSION-$KERNEL_VERSION/$KERNEL_VARIANT/patches/$PATCHNAME" -o $PATCHNAME
+          #patch -p1 -F3 --no-backup-if-mismatch < "$PATCHNAME"        
+          #echo "==> Apply KSU Safety Patch..."
+          #cd ../Wild_KSU
+          #PATCHNAME=70_ksu_safety-wksu-$KERNEL_VERSION.patch
+          #curl -LSs "https://raw.githubusercontent.com/Enginex0/Super-Builders/refs/heads/$BRANCH/$ANDROID_VERSION-$KERNEL_VERSION/$KERNEL_VARIANT/patches/$PATCHNAME" -o $PATCHNAME
+          #[ -s "$PATCHNAME" ] && patch -p1 --no-backup-if-mismatch < "$PATCHNAME" || echo "No 70_ patch needed"
+          #cd ../common
+
+          PATCHNAME=60_zeromount-$ANDROID_VERSION-$KERNEL_VERSION.patch          
+          curl -LSs "https://raw.githubusercontent.com/Enginex0/Super-Builders/refs/heads/$BRANCH/$ANDROID_VERSION-$KERNEL_VERSION/$KERNEL_VARIANT/patches/$PATCHNAME" -o $PATCHNAME
+          patch -p1 -F3 --no-backup-if-mismatch < "$PATCHNAME"
+    - name: NoMount
+      if: inputs.add_nomount || inputs.add_nomountX
+      #working-directory: ${{ env.KERNEL_ROOT }}/common
+      working-directory: ${{ github.workspace }}/kernel/common
+      run: |
+        echo ""
+        echo "=== NoMount patch ==="
+        ###########cd "$KERNEL_ROOT/common" # cd "$CONFIG/common"
+
+        if [ "${{ inputs.add_nomount }}" == "true" ]; then
+          MASTER_EXP="master" # master dev
+          echo "  Copying files to fs/..."
+          curl -LSs "https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/$MASTER_EXP/kernel/src/nomount.h" -o ./fs/nomount.h
+          curl -LSs "https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/$MASTER_EXP/kernel/src/nomount.c" -o ./fs/nomount.c
+          #curl -LSs "https://raw.githubusercontent.com/UserXP-web/kernel_build/refs/heads/main/patches/nomount/edit/nomount.h" -o ./fs/nomount.h
+          #curl -LSs "https://raw.githubusercontent.com/UserXP-web/kernel_build/refs/heads/main/patches/nomount/edit/nomount.c" -o ./fs/nomount.c
+          echo "  Done."
+          echo "  <> LIVE/latest patch ($MASTER_EXP)"
+          curl -LSs "https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/$MASTER_EXP/kernel/patches/nomount_5.10_kernel_integration.patch" -o nomount.patch
+        else
+          echo "  Copying files to fs/..."
+          curl -LSs "https://raw.githubusercontent.com/UserXP-web/kernel_build/refs/heads/main/patches/nomount/edit/nomount.h" -o ./fs/nomount.h
+          curl -LSs "https://raw.githubusercontent.com/UserXP-web/kernel_build/refs/heads/main/patches/nomount/edit/nomount.c" -o ./fs/nomount.c
+          echo "  Done."
+          echo "  <> Patches with edits by UserXP"
+          curl -LSs "https://raw.githubusercontent.com/UserXP-web/kernel_build/refs/heads/main/patches/nomount/edit/nomount_5.10_kernel_integration.patch" -o nomount.patch
+        fi
+        chmod 777 nomount.patch
+        echo "Applying..."
+        patch -p1 < nomount.patch # > patch_nomount_log.txt 2>&1
+        echo "=== END NoMount patch ==="
+
+    - name: HymoFS support
+      if: ${{ inputs.add_hymofs }}
+      #working-directory: ${{ env.KERNEL_ROOT }}/common
+      working-directory: ${{ github.workspace }}/kernel/common
+      run: |
+        echo "[💠] Apply HymoFS"
+        #########cd "$CONFIG/common" # cd $KERNEL_DIR 
+
+        # HymoFS One-Line Setup Script
+        # Usage: curl -LSs https://raw.githubusercontent.com/Anatdx/HymoFS/main/setup.sh | bash -s defconfig arch/arm64/configs/gki_defconfig with-susfs
+        if [ "${{ env.WITH_SUSFS }}" == "" ]; then 
+          #curl -LSs https://raw.githubusercontent.com/Anatdx/HymoFS/main/setup.sh | bash -s defconfig arch/arm64/configs/gki_defconfig
+          curl -LSs https://raw.githubusercontent.com/UserXP-web/kernel_build/main/patches/hymofs/setup.sh | bash -s defconfig "$GITHUB_WORKSPACE/wild_gki.fragment"
+        else
+          #curl -LSs https://raw.githubusercontent.com/Anatdx/HymoFS/main/setup.sh | bash -s defconfig "$GITHUB_WORKSPACE/wild_gki.fragment"
+          curl -LSs https://raw.githubusercontent.com/UserXP-web/kernel_build/main/patches/hymofs/setup.sh | bash -s defconfig "$GITHUB_WORKSPACE/wild_gki.fragment"
+        fi
+        #curl -LSs "https://raw.githubusercontent.com/Anatdx/HymoFS/refs/heads/android12_5.10/patch/hymofs.patch" -o hymofs.patch
+        #patch -p1 --fuzz=3 < hymofs.patch
+        echo "[✅] Done HymoFS."
+
+    # ==================== Apply Re-Kernel ====================
+    # Re-Kernel provides kernel-level protection through GKI Vendor Hooks.
+    - name: Apply Re-Kernel
+      if: ${{ inputs.use_rekernel }}
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        set -e
+        echo "Integrating Re-Kernel..."
+        TMP_REKERNEL=/tmp/rekernel
+        rm -rf "$TMP_REKERNEL"
+        git clone --depth 1 https://github.com/Sakion-Team/Re-Kernel.git "$TMP_REKERNEL"
+
+        # Prepare driver source code
+        mkdir -p common/drivers/rekernel
+        cp "$TMP_REKERNEL/LKM-Source/rekernel.c" common/drivers/rekernel/
+        cp "$TMP_REKERNEL/LKM-Source/rekernel.h" common/drivers/rekernel/
+
+        # Generate build configuration
+        cat > common/drivers/rekernel/Kconfig << 'EOF'
+        menu "Re:Kernel"
+        config REKERNEL
+            bool "Re:Kernel support (GKI Vendor Hooks)"
+            default y
+            help
+              Enable Re-Kernel support via GKI Vendor Hooks.
+
+        config REKERNEL_NETWORK
+            bool "Re:Kernel NetReceive unfreeze support"
+            depends on REKERNEL
+            default n
+        endmenu
+        EOF
+
+        cat > common/drivers/rekernel/Makefile << 'EOF'
+        obj-$(CONFIG_REKERNEL) += rekernel.o
+        ccflags-$(CONFIG_REKERNEL_NETWORK) += -DNETWORK_FILTER
+        EOF
+
+        # Mount to driver tree
+        if ! grep -qF 'source "drivers/rekernel/Kconfig"' common/drivers/Kconfig; then
+          sed -i '/^endmenu$/i source "drivers/rekernel/Kconfig"' common/drivers/Kconfig
+        fi
+        if ! grep -qF 'obj-$(CONFIG_REKERNEL) += rekernel/' common/drivers/Makefile; then
+          echo 'obj-$(CONFIG_REKERNEL) += rekernel/' >> common/drivers/Makefile
+        fi
+
+        # Enable kernel version macros
+        REKERNEL_H="common/drivers/rekernel/rekernel.h"
+        VERSION_MACRO="KERNEL_$(echo "${{ inputs.kernel_version }}" | tr '.' '_')"
+        if grep -q "^// #define ${VERSION_MACRO}$" "$REKERNEL_H"; then
+          sed -i "s|^// #define ${VERSION_MACRO}$|#define ${VERSION_MACRO}|" "$REKERNEL_H"
+        fi
+
+        # Correct header file include paths (for in-tree compilation)
+        sed -i 's|#include <../android/binder_internal.h>|#include "../../drivers/android/binder_internal.h"|g' common/drivers/rekernel/rekernel.c
+        # Complete the binder_internal dependency (to avoid the DEFINE_SHOW_ATTRIBUTE error in 5.10).
+        grep -qF '#include <linux/seq_file.h>' common/drivers/rekernel/rekernel.c || sed -i '/#include <trace\/hooks\/signal.h>/a #include <linux/seq_file.h>' common/drivers/rekernel/rekernel.c
+
+        # Configure defconfig (idempotent)
+        DEFCONFIG=${{ github.workspace }}/kernel/common/arch/arm64/configs/gki_defconfig
+        grep -q '^CONFIG_REKERNEL=y$' "$DEFCONFIG" || echo "CONFIG_REKERNEL=y" >> "$DEFCONFIG"
+        grep -q '^CONFIG_REKERNEL_NETWORK=y$' "$DEFCONFIG" || echo "CONFIG_REKERNEL_NETWORK=y" >> "$DEFCONFIG"
+
+    - name: NAME_INFO and Config
+      run: |
+        NAME_INFO="${{ env.NAME_INFO }}"
+        CONFIG_FILE="$GITHUB_WORKSPACE/wild_gki.fragment" # "${{ env.DEFCONFIG_FRAGMENT }}" # "$DEFCONFIG"
+
+        if [[ "${{ inputs.custom }}" == "true" ]]; then NAME_INFO="${NAME_INFO}_${{ inputs.custom_name }}"; fi
+        if [[ "${{ inputs.add_zeromount }}" == "true" ]]; then NAME_INFO="${NAME_INFO}_Zero"; fi
+        if [[ "${{ inputs.add_nomount }}" == "true" ]] || [[ "${{ inputs.add_nomountX }}" == "true" ]]; then
+          if [ "${{ inputs.add_nomountX }}" == "true" ]; then IS_X="X"; fi
+          NAME_INFO="${NAME_INFO}_NoMount$IS_X"
+          echo "CONFIG_NOMOUNT=y" >> "$CONFIG_FILE"
+        fi
+        if [[ "${{ inputs.add_hymofs }}" == "true" ]]; then NAME_INFO="${NAME_INFO}_hymofs"; fi
+
+        #if [ "${{ inputs.bypass_unicode }}" == "true" ]; then NAME_INFO="${NAME_INFO}_uni"; fi
+        #if [ "${{ inputs.enable_susfs }}" == "true" ]; then NAME_INFO="${NAME_INFO}_uni"; fi
+        #if [ "${{ inputs.use_zram }}" == "true" ]; then NAME_INFO="${NAME_INFO}_zram"; fi
+        if [ "${{ env.WITH_BBG }}" == "y" ]; then NAME_INFO="${NAME_INFO}_bbg"; fi
+        if [ "${{ inputs.use_rekernel }}" == "true" ]; then NAME_INFO="${NAME_INFO}_re"; fi
+        if [ "${{ env.WITH_NET }}" == "y" ]; then NAME_INFO="${NAME_INFO}_net"; fi
+        if [ "${{ env.WITH_DS }}" == "y" ]; then NAME_INFO="${NAME_INFO}_ds"; fi
+        #if [ "${{ inputs.use_kpm }}" == "true" ]; then NAME_INFO="${NAME_INFO}_kpm"; fi
+        #if [ "${{ inputs.enable_tmpfs }}" == "true" ]; then NAME_INFO="${NAME_INFO}_tmpfs"; fi
+        NAME_INFO="${NAME_INFO}_tmpfs"
+        if [ "${{ env.WITH_SUSFS }}" == "y" ]; then NAME_INFO="${NAME_INFO}_susfs"; fi
+        if [ "${{ inputs.add_bypass }}" == "true" ] || [ ${{ inputs.variant }} == 'Bypass' ]; then NAME_INFO="-Bypass${NAME_INFO}"; fi
+
+        NAME_INFO="${NAME_INFO}_$(date +'%d.%m.%y')"
+        echo "NAME_INFO=$NAME_INFO" >> $GITHUB_ENV
+        echo "***WILD*** NAME_INFO=$NAME_INFO"
+
+        cat >> "$CONFIG_FILE" << 'EOF'
+        #CONFIG_BPF_STREAM_PARSER=y # NOT this
+        #CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
+        #CONFIG_NETFILTER_XT_SET=y
+        #CONFIG_IP6_NF_NAT=y
+        #CONFIG_IP6_NF_TARGET_MASQUERADE=y
+        CONFIG_KSU_SUSFS_SUS_KSTAT_REDIRECT=y
+        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
+        EOF
+
+    - name: CORRECT stupid
+      shell: bash
+      if: inputs.custom
+      run: |
+        SUB_DIR="kernel/common" # sm7435
+        curl -LSs "https://raw.githubusercontent.com/UserXP-web/kernel_build/refs/heads/main/correct/bootconfig.c" -o ./$SUB_DIR/fs/proc/bootconfig.c
+
+        # Remove check_defconfig
+        #sed -i 's|^POST_DEFCONFIG_CMDS=.*|POST_DEFCONFIG_CMDS=""|' "$GITHUB_WORKSPACE/$SUB_DIR/build.config.gki"
+        sed -i 's/check_defconfig//' ./$SUB_DIR/build.config.gki
+
+    - name: 📝 clang...
+      if: inputs.custom
+      run: |
+        #sudo apt update
+        #sudo apt install clang libc++-dev build-essential g++
+        #clang --version
+
+        #sudo apt-get install lld
+        #sudo apt-get install llvm
+
+        cd "kernel/prebuilts-master/clang/host/linux-x86" ################# android kernel
+        clangVersion="r584948b" # r383902 r416183b r584948b --- r563880b
+        clang_PATH="clang-r563880b" # "clang-$clangVersion"
+        androidVersion="" # 12 or [empty]
+        if [ "${clangVersion}" == "r383902" ]; then androidVersion='12'; fi        
+        echo "============================================================================================="
+        if [ "${androidVersion}" == "" ]; then
+          url2="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/mirror-goog-main-llvm-toolchain-source/clang-${clangVersion}.tar.gz"
+        else
+          url2="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android${androidVersion}-release/clang-${clangVersion}.tar.gz"
+        fi
+        echo "Downloading... $url2"
+        mkdir -p $clang_PATH &&
+        aria2c -s16 -x16 -k1M $url2 -o clang.zip &&
+        tar -xf clang.zip -C $clang_PATH &&
+        rm -rf clang.zip
+        echo "============================================================================================="
+  
+        WORKDIR="$(pwd)"
+        export PATH="$WORKDIR/$clang_PATH/bin:$PATH"
+        export PATH="/usr/lib/ccache:$PATH"
+        echo "PATH=$PATH"
+
+
+
     - name: Build Normal Kernel
       env:
         SOURCE_DATE_EPOCH: ${{ env.SOURCE_DATE_EPOCH }}
@@ -302,6 +584,7 @@ jobs:
       with:
         version: ${{ inputs.version }}
         bypass: false
+        custom: ${{ inputs.custom }}
 
     - name: Get Cache Stats
       uses: ./.github/actions/cache-stats
@@ -349,11 +632,12 @@ jobs:
       with:
         bypass: true
         version: ${{ inputs.version }}
+        custom: ${{ inputs.custom }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: ${{ steps.extract.outputs.file_name }}-AnyKernel3
+        name: ${{ steps.extract.outputs.file_name }}${{ env.NAME_INFO }}-AnyKernel3
         path: ${{ github.workspace }}/AnyKernel3/**
         if-no-files-found: ignore
         compression-level: 9
