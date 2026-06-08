@@ -51,9 +51,12 @@ runs:
         init_repo() {
           if ${{ inputs.custom }}; then
             echo "CUSTOM repo"
-            MANIFEST_URL="https://github.com/UserXP-web/kernel_build"
-            FORMATTED_BRANCH="main"
-            MANIFEST_PATH_NAME="manifest/${{ inputs.custom_name }}.xml"
+            # MANIFEST_URL="https://github.com/UserXP-web/kernel_build"
+            MANIFEST_URL="https://github.com/Evolution-X-Devices/kernel_google_gs-6.6_manifest"
+            # FORMATTED_BRANCH="main"
+            FORMATTED_BRANCH="bka"
+            # MANIFEST_PATH_NAME="manifest/${{ inputs.custom_name }}.xml"
+            MANIFEST_PATH_NAME="${{ inputs.custom_name }}.xml"
   
             # Initialize repo with the target branch
             repo init -u ${MANIFEST_URL} -b ${FORMATTED_BRANCH} -m ${MANIFEST_PATH_NAME} --depth=1
